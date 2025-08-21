@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>XLSX File Generator</title>
+    <title>SAP dump Formator</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body { 
@@ -37,7 +37,6 @@
             padding: 25px;
         }
 
-        /* --- NEW IMAGE STYLE --- */
         .header-image {
             width: 100%; /* Make image responsive */
             height: auto; /* Maintain aspect ratio */
@@ -45,7 +44,6 @@
             margin-bottom: 25px; /* Add space below the image */
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-        /* --- END IMAGE STYLE --- */
 
         .file-input-wrapper {
             background: #fff;
@@ -108,14 +106,15 @@
 
     <div class="banner">
         <h1>SAP dump formator</h1>
-        <p>Upload your 'export in.xlsx' file to automatically generate the sold in the past layout.</p>
+        <p>Upload your 'export in.xlsx' file to automatically generate a sold in the past format' file.</p>
     </div>
 
     <div class="container">
 
-        <img src="banner 1.jpg" 
-             alt="banner1" 
+        <img src="https://via.placeholder.com/1200x400.png/5F9EA0/FFFFFF?text=Your+Image+Here" 
+             alt="Descriptive text for the image" 
              class="header-image">
+
         <div class="file-input-wrapper">
             <div class="file-input">
                 <label for="file-in">Upload "export in.xlsx"</label>
@@ -131,7 +130,6 @@
     </div>
 
     <script>
-        // The JavaScript code remains exactly the same
         const fileInInput = document.getElementById('file-in');
         const processBtn = document.getElementById('process-btn');
         const downloadLink = document.getElementById('download-link');
@@ -239,4 +237,3 @@
 
 </body>
 </html>
-
