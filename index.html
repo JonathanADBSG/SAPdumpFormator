@@ -11,14 +11,34 @@
             line-height: 1.6;
             background-color: #f4f4f9;
             color: #333;
+            margin: 0; /* Remove default margin */
+        }
+        
+        /* --- NEW BANNER STYLE --- */
+        .banner {
+            background-color: #2c3e50; /* A nice dark blue */
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .banner h1 {
+            margin: 0;
+            font-size: 2.5em;
+        }
+        .banner p {
+            margin-top: 10px;
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        /* --- END BANNER STYLE --- */
+
+        .container {
             max-width: 800px;
             margin: 20px auto;
-            padding: 20px;
+            padding: 25px;
         }
-        h1 { 
-            color: #2c3e50;
-        }
-        .container {
+        .file-input-wrapper {
             background: #fff;
             padding: 25px;
             border-radius: 8px;
@@ -77,19 +97,22 @@
 </head>
 <body>
 
-    <div class="container">
+    <div class="banner">
         <h1>XLSX File Generator</h1>
-        <p>Upload your 'export in.xlsx' file. The tool will automatically generate and process the 'export out.xlsx' file for you.</p>
+        <p>Upload your 'export in.xlsx' file to automatically generate a processed 'export out.xlsx' file.</p>
+    </div>
+    <div class="container">
+        <div class="file-input-wrapper">
+            <div class="file-input">
+                <label for="file-in">Upload "export in.xlsx"</label>
+                <input type="file" id="file-in" accept=".xlsx, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+            </div>
 
-        <div class="file-input">
-            <label for="file-in">Upload "export in.xlsx"</label>
-            <input type="file" id="file-in" accept=".xlsx, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
-        </div>
+            <button id="process-btn" disabled>Generate File</button>
 
-        <button id="process-btn" disabled>Generate File</button>
-
-        <div id="download-area">
-            <a href="#" id="download-link" download="export_out_processed.xlsx">Download Processed File</a>
+            <div id="download-area">
+                <a href="#" id="download-link" download="export_out_processed.xlsx">Download Processed File</a>
+            </div>
         </div>
     </div>
 
@@ -134,7 +157,6 @@
             const headerIn = dataIn[0];
             const dataRowsIn = dataIn.slice(1);
 
-            // 1. Build the initial structure of "export out"
             let processedRows = dataRowsIn.map(rowIn => {
                 const newRow = [];
                 blueprint.forEach(col => {
@@ -147,26 +169,22 @@
                 return newRow;
             });
             
-            // **NEW CHANGE 1**: Remove all rows where "Order quantity" (column E, index 4) is 0.
             processedRows = processedRows.filter(row => {
                 const orderQuantity = parseFloat(row[4]);
                 return !isNaN(orderQuantity) && orderQuantity !== 0;
             });
 
-            // 2. Perform calculations on the filtered rows
             processedRows.forEach(row => {
                 const valE_OrderQty = parseFloat(row[4]);
                 const valF_NetPrice = parseFloat(row[5]);
                 const valK_TotalCost = parseFloat(row[10]);
 
-                // Rule 3: Calculate Column G (Unit Cost)
                 let valG_UnitCost = 0;
                 if (valE_OrderQty !== 0 && !isNaN(valK_TotalCost) && !isNaN(valE_OrderQty)) {
                     valG_UnitCost = valK_TotalCost / valE_OrderQty;
                 }
                 row[6] = valG_UnitCost;
 
-                // **NEW CHANGE 2**: Rule 5, calculate Column H (Margin) only if cost > 0
                 let valH_Margin = 0;
                 if (valG_UnitCost > 0 && valF_NetPrice !== 0 && !isNaN(valF_NetPrice)) {
                      valH_Margin = (valF_NetPrice - valG_UnitCost) / valF_NetPrice;
@@ -174,12 +192,10 @@
                 row[7] = valH_Margin;
             });
 
-            // 3. Delete Column K (now at index 10)
             processedRows.forEach(row => {
                 row.splice(10, 1);
             });
             
-            // 4. Sort rows based on Column I (Date, at index 8)
             processedRows.sort((a, b) => {
                 const dateA = a[8] instanceof Date ? a[8] : new Date(a[8]);
                 const dateB = b[8] instanceof Date ? b[8] : new Date(b[8]);
@@ -187,17 +203,14 @@
                 return dateA - dateB;
             });
 
-            // 5. Create the final header row
             const finalHeader = [
                 headerIn[21], headerIn[4], headerIn[23], headerIn[16], headerIn[45], headerIn[28], 
                 'Cost', 'Margin',
                 headerIn[6], headerIn[0]
             ];
             
-            // 6. Combine header and data
             const finalData = [finalHeader, ...processedRows];
 
-            // 7. Create and trigger download for the new XLSX file
             const newWorksheet = XLSX.utils.aoa_to_sheet(finalData);
             const newWorkbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(newWorkbook, newWorksheet, "Processed Data");
