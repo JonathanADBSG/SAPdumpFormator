@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XLSX File Generator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            background-color: #f4f4f9;
+            color: #333;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        h1 { 
+            color: #2c3e50;
+        }
+        .container {
+            background: #fff;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .file-input {
+            margin-bottom: 20px;
+            border: 2px dashed #3498db;
+            padding: 20px;
+            border-radius: 5px;
+            text-align: center;
+            background-color: #ecf0f1;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        button:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+        #download-area {
+            margin-top: 20px;
+            text-align: center;
+        }
+        #download-link {
+            display: none; /* Hidden until file is ready */
+            background-color: #2ecc71;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 5px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+         #download-link:hover {
+            background-color: #27ae60;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>XLSX File Generator</h1>
+        <p>Upload your 'export in.xlsx' file. The tool will automatically generate and process the 'export out.xlsx' file for you.</p>
+
+        <div class="file-input">
+            <label for="file-in">Upload "export in.xlsx"</label>
+            <input type="file" id="file-in" accept=".xlsx, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+        </div>
+
+        <button id="process-btn" disabled>Generate File</button>
+
+        <div id="download-area">
+            <a href="#" id="download-link" download="export_out_processed.xlsx">Download Processed File</a>
+        </div>
+    </div>
+
+    <script>
+        const fileInInput = document.getElementById('file-in');
+        const processBtn = document.getElementById('process-btn');
+        const downloadLink = document.getElementById('download-link');
+
+        // Enable the button once a file is selected
+        fileInInput.addEventListener('change', () => {
+            processBtn.disabled = fileInInput.files.length === 0;
+        });
+
+        const readXLSXFile = (file) => {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const data = new Uint8Array(event.target.result);
+                    const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                    const sheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[sheetName];
+                    const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    resolve(json);
+                };
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(file);
+            });
+        };
+
+        processBtn.addEventListener('click', async () => {
+            try {
+                const dataIn = await readXLSXFile(fileInInput.files[0]);
+                processAndGenerateFile(dataIn);
+            } catch (error) {
+                console.error("Error reading file:", error);
+                alert("There was an error reading the file. Please ensure it is a valid XLSX file.");
+            }
+        });
+
+        function processAndGenerateFile(dataIn) {
+            const blueprint = [21, 4, 23, 16, 45, 28, 'Add', 'Add', 6, 0, 77];
+            const headerIn = dataIn[0];
+            const dataRowsIn = dataIn.slice(1);
+
+            // 1. Build the initial structure of "export out"
+            let processedRows = dataRowsIn.map(rowIn => {
+                const newRow = [];
+                blueprint.forEach(col => {
+                    if (col === 'Add') {
+                        newRow.push(null); 
+                    } else {
+                        newRow.push(rowIn[col]);
+                    }
+                });
+                return newRow;
+            });
+            
+            // **NEW CHANGE 1**: Remove all rows where "Order quantity" (column E, index 4) is 0.
+            processedRows = processedRows.filter(row => {
+                const orderQuantity = parseFloat(row[4]);
+                return !isNaN(orderQuantity) && orderQuantity !== 0;
+            });
+
+            // 2. Perform calculations on the filtered rows
+            processedRows.forEach(row => {
+                const valE_OrderQty = parseFloat(row[4]);
+                const valF_NetPrice = parseFloat(row[5]);
+                const valK_TotalCost = parseFloat(row[10]);
+
+                // Rule 3: Calculate Column G (Unit Cost)
+                let valG_UnitCost = 0;
+                if (valE_OrderQty !== 0 && !isNaN(valK_TotalCost) && !isNaN(valE_OrderQty)) {
+                    valG_UnitCost = valK_TotalCost / valE_OrderQty;
+                }
+                row[6] = valG_UnitCost;
+
+                // **NEW CHANGE 2**: Rule 5, calculate Column H (Margin) only if cost > 0
+                let valH_Margin = 0;
+                if (valG_UnitCost > 0 && valF_NetPrice !== 0 && !isNaN(valF_NetPrice)) {
+                     valH_Margin = (valF_NetPrice - valG_UnitCost) / valF_NetPrice;
+                }
+                row[7] = valH_Margin;
+            });
+
+            // 3. Delete Column K (now at index 10)
+            processedRows.forEach(row => {
+                row.splice(10, 1);
+            });
+            
+            // 4. Sort rows based on Column I (Date, at index 8)
+            processedRows.sort((a, b) => {
+                const dateA = a[8] instanceof Date ? a[8] : new Date(a[8]);
+                const dateB = b[8] instanceof Date ? b[8] : new Date(b[8]);
+                if (isNaN(dateA.getTime()) || isNaN(dateB.getTime())) return 0;
+                return dateA - dateB;
+            });
+
+            // 5. Create the final header row
+            const finalHeader = [
+                headerIn[21], headerIn[4], headerIn[23], headerIn[16], headerIn[45], headerIn[28], 
+                'Cost', 'Margin',
+                headerIn[6], headerIn[0]
+            ];
+            
+            // 6. Combine header and data
+            const finalData = [finalHeader, ...processedRows];
+
+            // 7. Create and trigger download for the new XLSX file
+            const newWorksheet = XLSX.utils.aoa_to_sheet(finalData);
+            const newWorkbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(newWorkbook, newWorksheet, "Processed Data");
+            
+            const wbout = XLSX.write(newWorkbook, { bookType: 'xlsx', type: 'array' });
+            const blob = new Blob([wbout], { type: 'application/octet-stream' });
+            
+            downloadLink.href = URL.createObjectURL(blob);
+            downloadLink.style.display = 'inline-block';
+        }
+    </script>
+
+</body>
+</html>
